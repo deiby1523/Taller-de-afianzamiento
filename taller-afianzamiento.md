@@ -1,7 +1,11 @@
 # TALLER DE AFIANZAMIENTO: ARQUITECTURA EMPRESARIAL Y TRANSICIÓN A FRAMEWORKS MODERNOS
 
-Integrantes:
--Deiby Fabian Prada Quintero
+## Integrantes:
+
+- Deiby Fabian Prada Quintero
+- Wilson Fernando Guelves Salazar
+- Armando Rafael Trespalacios Lizcano
+- Jair Fabian Duarte Villamizar
 
 **Objetivo:** Consolidar conceptos de arquitectura empresarial Java EE y preparar la transición hacia PrimeFaces y Spring Boot
 
