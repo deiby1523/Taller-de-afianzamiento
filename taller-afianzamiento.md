@@ -1,5 +1,6 @@
 # TALLER DE AFIANZAMIENTO: ARQUITECTURA EMPRESARIAL Y TRANSICIÓN A FRAMEWORKS MODERNOS
 
+Integrantes:
 
 **Objetivo:** Consolidar conceptos de arquitectura empresarial Java EE y preparar la transición hacia PrimeFaces y Spring Boot
 
