@@ -17,6 +17,8 @@
 
 **Instrucciones:** Analice los siguientes tres escenarios y complete la tabla comparativa.
 
+Hello word
+
 #### Escenario A: Sistema de Pedidos Online
 - Múltiples usuarios hacen pedidos simultáneamente
 - Cada pedido tiene múltiples ítems
