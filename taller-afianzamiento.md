@@ -90,13 +90,15 @@ public class TransferenciaService {
     @Inject
     private CuentaDAO cuentaDAO;
     
+    @Transactional //Si ocurre una excepción no controlada, el contenedor revierte todos los cambios
     public void transferir(String origen, String destino, double monto) 
             throws SQLException {
         Cuenta cuentaOrigen = cuentaDAO.buscar(origen);
         cuentaOrigen.setSaldo(cuentaOrigen.getSaldo() - monto);
         cuentaDAO.actualizar(cuentaOrigen);
         
-        // ¿Qué pasa si falla aquí?
+        // ¿Qué pasa si falla aquí? 
+        //Sin transacción, la operacion no es atómica ni segura devemos envolver el bloque completo en una @transactional para garantisar una consistencia ACID.
         Cuenta cuentaDestino = cuentaDAO.buscar(destino);
         cuentaDestino.setSaldo(cuentaDestino.getSaldo() + monto);
         cuentaDAO.actualizar(cuentaDestino);
