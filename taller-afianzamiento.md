@@ -51,14 +51,23 @@
 
 ```java
 // Código 1: Controller con problemas
-@RequestScoped
-public class CarritoComprasController {
+//Con @RequestScoped crea una nueva instacia cada peticion del HTTP, esto crea el problema de que el contenido del carro, se pierde entre solicitudes.
+@SessionScoped // @SessionScoped mantinene la informacion por la duracion de la sesion del usuario.
+public class CarritoComprasController implements Serializable{ // Con @SessionScoped se necesita que la clase sea Serializable.
     
     @Inject
     private ProductoService productoService;
     
     private List<Producto> productosEnCarrito; // Problema?
     private double totalCompra;
+    //ProductosEnCarrito no se inicializa antes de usar Add(), lo que lanza un error llamado NullPointerException.
+    
+    //Utilizamos un PostConstruct que es una anotacion de java que marca un método para que se ejecute automaticamente justo despues de que un bean ha sido instanciado y sus dependencias inyectadas, pero antes de que sea utilizado en la aplicacion.
+    @PostConstruct
+    public void init() {
+        productosEnCarrito = new ArrayList<>();
+        totalCompra = 0;
+    }
     
     public void agregarProducto(String codigo) {
         Producto p = productoService.buscar(codigo);
@@ -70,6 +79,9 @@ public class CarritoComprasController {
         // Procesar compra
         return "confirmacion";
     }
+
+    // Getters y setters
+
 }
 
 // Código 2: Service sin manejo transaccional
