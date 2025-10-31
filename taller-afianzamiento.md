@@ -324,6 +324,251 @@ public class ReservaCitaServlet extends HttpServlet {
 
 ---
 
+## 1. Capa de Modelo (JavaBeans)
+
+Creamos las clases que representan las entidades principales del sistema.
+
+```java
+// Cita.java
+public class Cita {
+    private int id;
+    private String cedulaPaciente;
+    private String idMedico;
+    private String fecha;
+    private String hora;
+    private String estado;
+
+    public Cita() {}
+
+    // Getters y Setters
+    // ...
+}
+```
+
+```java
+// Medico.java
+public class Medico {
+    private String id;
+    private String nombre;
+    private String especialidad;
+
+    public double calcularPrecio() {
+        if ("GENERAL".equalsIgnoreCase(especialidad)) return 50000;
+        else if ("ESPECIALISTA".equalsIgnoreCase(especialidad)) return 80000;
+        return 60000;
+    }
+
+    // Getters y Setters
+    // ...
+}
+```
+
+---
+
+## 2. Capa de Persistencia (DAO)
+
+Los DAOs se encargan del acceso a la base de datos y del manejo de conexiones.
+
+```java
+// CitaDAO.java
+import javax.annotation.Resource;
+import javax.sql.DataSource;
+import java.sql.*;
+
+public class CitaDAO {
+
+    @Resource(name = "jdbc/clinicaDS")
+    private DataSource dataSource;
+
+    public boolean verificarDisponibilidad(String idMedico, String fecha, String hora) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM citas WHERE id_medico=? AND fecha=? AND hora=?";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, idMedico);
+            ps.setString(2, fecha);
+            ps.setString(3, hora);
+            ResultSet rs = ps.executeQuery();
+            rs.next();
+            return rs.getInt(1) == 0;
+        }
+    }
+
+    public void guardar(Cita cita) throws SQLException {
+        String sql = "INSERT INTO citas (cedula_paciente, id_medico, fecha, hora, estado) VALUES (?,?,?,?,?)";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, cita.getCedulaPaciente());
+            ps.setString(2, cita.getIdMedico());
+            ps.setString(3, cita.getFecha());
+            ps.setString(4, cita.getHora());
+            ps.setString(5, cita.getEstado());
+            ps.executeUpdate();
+        }
+    }
+}
+```
+
+```java
+// MedicoDAO.java
+import javax.annotation.Resource;
+import javax.sql.DataSource;
+import java.sql.*;
+
+public class MedicoDAO {
+
+    @Resource(name = "jdbc/clinicaDS")
+    private DataSource dataSource;
+
+    public Medico obtenerPorId(String id) throws SQLException {
+        String sql = "SELECT * FROM medicos WHERE id=?";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, id);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                Medico m = new Medico();
+                m.setId(rs.getString("id"));
+                m.setNombre(rs.getString("nombre"));
+                m.setEspecialidad(rs.getString("especialidad"));
+                return m;
+            }
+            return null;
+        }
+    }
+}
+```
+
+---
+
+## 3. Capa de Servicio (Service)
+
+Maneja la lógica del negocio y las transacciones.
+
+```java
+import javax.inject.Inject;
+import javax.transaction.UserTransaction;
+
+public class CitaService {
+
+    @Inject
+    private CitaDAO citaDAO;
+
+    @Inject
+    private MedicoDAO medicoDAO;
+
+    @Inject
+    private UserTransaction tx;
+
+    public double reservarCita(String cedula, String idMedico, String fecha, String hora) throws Exception {
+        tx.begin();
+        try {
+            if (!citaDAO.verificarDisponibilidad(idMedico, fecha, hora)) {
+                throw new Exception("El horario no está disponible.");
+            }
+
+            Cita cita = new Cita();
+            cita.setCedulaPaciente(cedula);
+            cita.setIdMedico(idMedico);
+            cita.setFecha(fecha);
+            cita.setHora(hora);
+            cita.setEstado("RESERVADA");
+
+            citaDAO.guardar(cita);
+
+            Medico medico = medicoDAO.obtenerPorId(idMedico);
+            double precio = medico.calcularPrecio();
+
+            tx.commit();
+            return precio;
+
+        } catch (Exception e) {
+            tx.rollback();
+            throw e;
+        }
+    }
+}
+```
+
+---
+
+## 4. Capa de Presentación (Managed Bean)
+
+Recibe los datos del formulario y comunica la vista con el servicio.
+
+```java
+import javax.inject.Inject;
+import javax.enterprise.context.RequestScoped;
+import javax.inject.Named;
+
+@Named
+@RequestScoped
+public class CitaController {
+
+    @Inject
+    private CitaService citaService;
+
+    private String cedulaPaciente;
+    private String idMedico;
+    private String fecha;
+    private String hora;
+    private double precio;
+
+    public void procesarReserva() {
+        try {
+            precio = citaService.reservarCita(cedulaPaciente, idMedico, fecha, hora);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Getters y Setters
+    // ...
+}
+```
+
+---
+
+## 5. (Bonus) Patrón Facade
+
+Coordina la reserva y el envío de confirmaciones al paciente.
+
+```java
+import javax.inject.Inject;
+
+public class ClinicaFacade {
+
+    @Inject
+    private CitaService citaService;
+
+    @Inject
+    private NotificacionService notificacionService;
+
+    public void reservarYNotificar(String cedula, String idMedico, String fecha, String hora) throws Exception {
+        double precio = citaService.reservarCita(cedula, idMedico, fecha, hora);
+        notificacionService.enviarEmail(cedula, "Cita reservada. Total a pagar: $" + precio);
+    }
+}
+```
+
+---
+
+## Conclusión
+
+**Antes:** todo el código estaba en un único servlet, difícil de mantener.  
+**Después:** se aplicó una arquitectura en capas clara:
+
+| Capa | Responsabilidad |
+|------|------------------|
+| **Modelo (JavaBeans)** | Representa los datos (Cita, Medico). |
+| **DAO** | Se comunica con la base de datos. |
+| **Service** | Contiene la lógica del negocio y maneja transacciones. |
+| **Controller (Managed Bean)** | Recibe datos del usuario y llama a los servicios. |
+| **Facade (opcional)** | Coordina procesos grandes como notificaciones o auditorías. |
+
+Esta separación mejora la **mantenibilidad, reutilización y claridad** del código.
+
+---
+
 ## PARTE III: TRANSICIÓN A FRAMEWORKS MODERNOS (40 minutos)
 
 ### Sección A: Conceptos Puente (20 minutos)
