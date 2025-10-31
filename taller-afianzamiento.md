@@ -567,35 +567,26 @@ public class ClinicaFacade {
 
 Esta separación mejora la **mantenibilidad, reutilización y claridad** del código.
 
----
+# PARTE III: TRANSICIÓN A FRAMEWORKS MODERNOS (40 minutos)
 
-## PARTE III: TRANSICIÓN A FRAMEWORKS MODERNOS (40 minutos)
+## Sección A: Conceptos Puente (20 minutos)
 
-### Sección A: Conceptos Puente (20 minutos)
-
-#### Actividad 3: Tabla Comparativa de Inyección de Dependencias
+### Actividad 3: Tabla Comparativa de Inyección de Dependencias
 
 Complete la siguiente tabla comparativa entre Java EE CDI, Spring y PrimeFaces:
 
 | Concepto | Java EE / CDI | Spring / Spring Boot | PrimeFaces + CDI |
 |----------|---------------|----------------------|------------------|
-| Anotación para inyección | `@Inject` | | |
-| Anotación para bean de sesión | `@SessionScoped` | | |
-| Anotación para bean de request | `@RequestScoped` | | |
-| Anotación para singleton | `@ApplicationScoped` | | |
-| Componente de servicio | `@Stateless` o CDI bean | | N/A |
-| Transacciones declarativas | `@Transactional` (JTA) | | |
-| Configuración | `beans.xml` | | |
-| Managed Bean para vista | CDI Managed Bean | | |
+| Anotación para inyección | `@Inject` | `@Autowired` o `@Inject` | `@Inject` |
+| Anotación para bean de sesión | `@SessionScoped` | `@SessionScope` | `@SessionScoped` |
+| Anotación para bean de request | `@RequestScoped` | `@RequestScope` | `@RequestScoped` |
+| Anotación para singleton | `@ApplicationScoped` | `@ApplicationScope` | `@ApplicationScoped` |
+| Componente de servicio | `@Stateless` o CDI bean | `@Service` | N/A |
+| Transacciones declarativas | `@Transactional` (JTA) | `@Transactional` | `@Transactional` |
+| Configuración | `beans.xml` | `application.properties`/`application.yml` | `beans.xml` |
+| Managed Bean para vista | CDI Managed Bean | `@Controller` o `@RestController` | CDI Managed Bean |
 
-**Investigue y complete:**
-- Spring Boot usa `@Autowired` o `@Inject` para inyección
-- Spring Boot scope equivalente: `@RequestScope`, `@SessionScope`, `@ApplicationScope`
-- Spring Boot usa `@Service` para servicios
-- PrimeFaces trabaja con los mismos managed beans CDI de JSF
-- PrimeFaces scope especial: `@ViewScoped` (de JSF)
-
-#### Actividad 4: De Java EE a Spring Boot
+### Actividad 4: De Java EE a Spring Boot
 
 **Dado este código Java EE CDI:**
 
@@ -632,46 +623,62 @@ public class ProductoService {
 **Conviértalo a Spring Boot:**
 
 ```java
-// Complete el código Spring Boot equivalente
 @Controller
 @SessionAttributes("productos")
 public class ProductoController {
     
-    // ¿Qué anotación usar para inyección?
+    @Autowired
     private ProductoService productoService;
     
-    // ¿Cómo manejar la inicialización?
+    private List<Producto> productos;
     
+    @ModelAttribute("productos")
+    public List<Producto> inicializarProductos() {
+        if (productos == null) {
+            productos = productoService.listarTodos();
+        }
+        return productos;
+    }
     
-    // Complete los métodos
+    // getters y setters
 }
 
-// ¿Qué anotación usar para el servicio?
+@Service
 public class ProductoService {
     
-    // ¿Cómo inyectar el repository?
+    @Autowired
     private ProductoRepository productoRepository;
     
     public List<Producto> listarTodos() {
-        // En Spring Boot con JPA
         return productoRepository.findAll();
     }
 }
 ```
+## Preguntas Guía
 
-**Preguntas guía:**
-1. ¿Qué equivale `@Inject` en Spring?
-2. ¿Qué equivale `@Stateless` en Spring?
-3. ¿Cómo se declara un Repository en Spring Boot?
-4. ¿Qué ventajas tiene Spring Boot sobre Java EE tradicional?
+### ¿Qué equivale @Inject en Spring?
+`@Autowired` es el equivalente directo en Spring.
 
-### Sección B: Introducción a PrimeFaces (20 minutos)
+### ¿Qué equivale @Stateless en Spring?
+`@Service` es el equivalente para componentes de servicio.
 
-#### Actividad 5: Comparación JSP vs PrimeFaces
+### ¿Cómo se declara un Repository en Spring Boot?
+Con `@Repository` en una interfaz que extienda `JpaRepository`.
 
-**Analice estos dos códigos equivalentes:**
+### ¿Qué ventajas tiene Spring Boot sobre Java EE tradicional?
+- Configuración automática y convención sobre configuración
+- Arranque más rápido y embebido
+- Ecosistema más amplio y comunidad activa
+- Mejor integración con microservicios
 
-**JSP Tradicional:**
+---
+
+## Sección B: Introducción a PrimeFaces (20 minutos)
+
+### Actividad 5: Comparación JSP vs PrimeFaces
+
+#### JSP Tradicional:
+
 ```jsp
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 
@@ -702,7 +709,7 @@ public class ProductoService {
 ```
 
 **PrimeFaces (XHTML con JSF):**
-```xhtml
+```jsp
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml"
@@ -743,33 +750,56 @@ public class ProductoService {
 </html>
 ```
 
-**Responda:**
-1. ¿Qué ventajas observa en PrimeFaces sobre JSP tradicional?
-2. ¿Cómo se vinculan los componentes PrimeFaces con el Managed Bean?
-3. ¿Qué es `update="tablaProductos"` y qué tecnología usa (AJAX)?
-4. ¿El Managed Bean cambia al usar PrimeFaces? ¿Por qué?
+# Preguntas de Análisis
 
-#### Actividad 6: Componentes Avanzados PrimeFaces
+## ¿Qué ventajas observa en PrimeFaces sobre JSP tradicional?
+- Componentes más ricos y con mejor apariencia
+- Manejo automático de AJAX
+- Validación integrada
+- Mejor separación entre vista y lógica
 
-**Investigue y describa casos de uso para estos componentes PrimeFaces:**
+## ¿Cómo se vinculan los componentes PrimeFaces con el Managed Bean?
+A través de Expression Language: `#{bean.propiedad}`
 
-1. **`<p:dataTable>` con LazyDataModel**
-   - ¿Cuándo usar paginación lazy?
-   - ¿Qué ventaja tiene sobre cargar toda la lista?
+## ¿Qué es update="tablaProductos" y qué tecnología usa (AJAX)?
+Actualiza solo el componente con id "tablaProductos" sin recargar toda la página, usando AJAX automáticamente.
 
-2. **`<p:dialog>`**
-   - ¿Cómo mejora la UX comparado con páginas separadas?
-   - ¿Se requiere JavaScript manual?
+## ¿El Managed Bean cambia al usar PrimeFaces? ¿Por qué?
+No cambia significativamente, sigue siendo un CDI Managed Bean normal, pero puede aprovechar mejor las capacidades de AJAX.
 
-3. **`<p:autoComplete>`**
-   - ¿Cómo se implementa el método de búsqueda en el bean?
-   - ¿Es necesario AJAX?
+# Actividad 6: Componentes Avanzados PrimeFaces
 
-4. **`<p:fileUpload>`**
-   - ¿Cómo se procesa el archivo en el Managed Bean?
-   - ¿Dónde se guardaría en la arquitectura en capas?
+## `<p:dataTable>` con LazyDataModel
 
----
+### ¿Cuándo usar paginación lazy?
+Cuando se tienen grandes volúmenes de datos (miles de registros) para no cargar todo en memoria.
+
+### ¿Qué ventaja tiene sobre cargar toda la lista?
+Mejor rendimiento y uso eficiente de memoria.
+
+## `<p:dialog>`
+
+### ¿Cómo mejora la UX comparado con páginas separadas?
+Permite interacciones rápidas sin cambiar de página, manteniendo el contexto.
+
+### ¿Se requiere JavaScript manual?
+No, PrimeFaces maneja todo automáticamente.
+
+## `<p:autoComplete>`
+
+### ¿Cómo se implementa el método de búsqueda en el bean?
+Con un método que recibe el query y retorna la lista de sugerencias.
+
+### ¿Es necesario AJAX?
+Sí, se usa automáticamente para buscar mientras el usuario escribe.
+
+## `<p:fileUpload>`
+
+### ¿Cómo se procesa el archivo en el Managed Bean?
+Con un método que recibe el UploadedFile como parámetro.
+
+### ¿Dónde se guardaría en la arquitectura en capas?
+En el Service layer, que se encargaría de validar y almacenar el archivo.
 
 ## PARTE IV: CASO INTEGRADOR FINAL (10 minutos)
 
