@@ -534,7 +534,7 @@ public class ProductoService {
 
 **Tarea:** Diseñe la arquitectura completa especificando:
 
-1. **Capas y componentes:**
+**Capas y componentes:**
    - Entidades (JavaBeans)
    - DAOs
    - Services
@@ -542,20 +542,113 @@ public class ProductoService {
    - Controllers
    - Vistas (JSP/PrimeFaces)
 
+  ### Presentación (JSF / PrimeFaces)
+- **Vistas**: JSF + PrimeFaces.
+  - `catalogo.xhtml` — listado paginado de productos (lazy load).
+  - `producto.xhtml` — detalle del producto .
+  - `carrito.xhtml` — vista del carrito .
+  - `checkout.xhtml` — wizard checkout multipaso .
+  - `login.xhtml`, `perfil.xhtml`, `pedidos.xhtml`.
+
+### Controladores (Managed Beans / Controllers)
+- **LoginController** — autenticación, creación de sesión, logout.
+- **ProductoCatalogoController** — búsqueda, filtros, paginación, lazy loading.
+- **ProductoDetalleController** — ver detalles, añadir al carrito desde detalle.
+- **CarritoComprasController** — añadir/quitar ítems, cambiar cantidades, calcular totales.
+- **CheckoutMultipasoController** — control del wizard paso a paso, validaciones del pedido, invocar servicio de pago.
+- **PedidoController** — ver historial, estatus del pedido.
+- **AdminProductosController** — CRUD de productos e inventario.
+
+### Services (lógica de negocio)
+- **ProductService**
+  - `findProducts`, `findById`, `updateStock` *(transaccional)*
+- **CartService**
+  - `getCartForUser`, `addItem`, `updateItemQuantity`
+- **OrderService**
+  - `createOrder`, `cancelOrder` *(transaccional)*
+- **PaymentService**
+  - `processPayment`, `capturePayment`
+- **InventoryService**
+  - `checkAvailability`, `decrementStock`, `incrementStock` *(transaccional)*
+
+### DAOs / Repositorios
+- **ProductRepository**, **UserRepository**, **OrderRepository**, **PaymentRepository**, **InventoryRepository**
+- Implementación: JPA/Hibernate con `@Entity` JavaBeans.
+
+### Entidades (JavaBeans / JPA Entities)
+- **User**, **Product**, **Cart**, **Order**, **OrderItem**, **Payment**, **InventoryMovement**.
+
+### Facades 
+- **EcommerceFacade**: orquesta operaciones combinadas entre servicios.
+     
+
 2. **Scopes de cada Managed Bean:**
    - `LoginController`: ¿?
    - `ProductoCatalogoController`: ¿?
    - `CarritoComprasController`: ¿?
    - `CheckoutMultipasoController`: ¿?
 
+| Bean | Scope | Justificación |
+|------|--------|----------------|
+| `LoginController` | `@SessionScoped` | Mantiene sesión del usuario. |
+| `ProductoCatalogoController` | `@ViewScoped` | Conserva filtros y paginación. |
+| `CarritoComprasController` | `@SessionScoped` | Carrito de usuario activo en sesión. |
+| `CheckoutMultipasoController` | `@ViewScoped` o `@SessionScoped` | Según si el wizard está en una o varias vistas. |
+
 3. **Puntos donde se requieren transacciones:**
    - Liste las operaciones que deben ser transaccionales
 
+    1. **Crear pedido + decrementar inventario + registrar pago.**
+    2. **Captura de pago y cambio de estado del pedido.**
+    3. **Cancelar pedido y reembolsar.**
+    4. **Reservar stock al iniciar checkout (opcional).**
+    5. **Ajustes o transferencias de inventario.**
+    6. **CRUD crítico como precios, promociones.**
+
 4. **Transición a tecnologías modernas:**
    - ¿Qué cambiaría al migrar a Spring Boot?
+   
+        - `@ManagedBean` → `@RestController` / `@Controller`
+        - `@Service` y `@Repository` reemplazan a DAOs.
+        - `@Transactional` en servicios críticos.
+        - `Spring Security` para autenticación.
+        - Persistencia con `Spring Data JPA`.
+        - Configuración externa en `application.yml`.
+  
    - ¿Qué componentes PrimeFaces usaría en el catálogo?
+     
+        - `p:dataTable` (lazy load, filtros)
+        - `p:carousel`, `p:galleria` (banners)
+        - `p:dialog` (vista rápida)
+        - `p:wizard` (checkout multipaso)
+        - `p:growl`, `p:confirmDialog`
+        - `p:card`, `p:panelGrid` (tarjetas de producto)
+        - `p:ajax` (actualizaciones parciales)
+  
    - ¿Cómo implementaría el carrito con AJAX de PrimeFaces?
 
+ ```xhtml
+<p:commandButton value="Añadir"
+                 action="#{productoCatalogoController.addToCart(product.id)}"
+                 process="@this"
+                 update=":header:cartBadge :growl" />
+
+<h:form id="header">
+  <p:commandLink update=":header:cartPanel">
+    <p:badge value="#{carritoComprasController.itemCount}" />
+  </p:commandLink>
+</h:form>
+
+<h:form id="cartForm">
+  <p:panel id="cartPanel">
+    <ui:repeat value="#{carritoComprasController.items}" var="item">
+      <h:outputText value="#{item.productName} - #{item.qty}" />
+      <p:commandButton value="+" action="#{carritoComprasController.increment(item.productId)}" update="cartPanel cartBadge" />
+      <p:commandButton value="-" action="#{carritoComprasController.decrement(item.productId)}" update="cartPanel cartBadge" />
+    </ui:repeat>
+  </p:panel>
+</h:form>
+```
 ---
 
 ## RECURSOS COMPLEMENTARIOS
