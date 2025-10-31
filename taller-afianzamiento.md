@@ -155,7 +155,11 @@ public class TransferenciaService {
 ```java
 // Código 3: JSP con lógica de negocio
 <%
+    //El código mezcla presentación (JSP) con lógica de negocio y acceso a datos.
+    //Violación del patrón MVC: la JSP debería solo mostrar datos, no conectarse a la base.
     String cedula = request.getParameter("cedula");
+    //DriverManager.getConnection() dentro del JSP crea una conexión por solicitud, lo cual es ineficiente.
+    //No usa un pool de conexiones ni manejo centralizado de la base.
     Connection conn = DriverManager.getConnection("jdbc:mysql://...");
     PreparedStatement stmt = conn.prepareStatement("SELECT * FROM cliente WHERE cedula=?");
     stmt.setString(1, cedula);
@@ -164,8 +168,11 @@ public class TransferenciaService {
     if(rs.next()) {
         double saldo = rs.getDouble("saldo");
         if(saldo > 1000000) {
+            //out.println("Cliente VIP"); escribe directamente en la salida sin filtrar. En sistemas reales, debería mostrarse de forma controlada con etiquetas JSP o JSTL.
             out.println("Cliente VIP");
         }
+        //No se capturan excepciones SQL ni se muestra un mensaje controlado. Si ocurre un error, la página se rompe.
+        //Cualquier cambio en la lógica o consulta obliga a modificar la JSP. Debería usarse un servlet o clase DAO para gestionar el acceso a datos.
     }
 %>
 ```
@@ -187,6 +194,7 @@ public class TransferenciaService {
 ---
 
 **Preguntas:**
+<<<<<<< HEAD
 
 ### 1. ¿Qué scope debería tener el CarritoComprasController? ¿Por qué?
 
@@ -195,6 +203,30 @@ public class TransferenciaService {
     * `@RequestScoped` perdería el estado en cada petición.
     * `@ApplicationScoped` sería compartido por todos los usuarios (inadecuado).
 * Se debe asegurar la serializabilidad de la clase. `@ViewScoped` es una alternativa para flujos cortos/multi-step.
+=======
+1. ¿Qué scope debería tener el CarritoComprasController? ¿Por qué?
+    Debe ser @SessionScoped, el carrito pertenece a la sesión del usuario y debe mantener su estado entre multiples peticiones HTTP (Agregar, eliminar, confirmar productos) con @RequestScoped se perdera el contenido en cada peticion y el usuario no podria conservar su carrito. @aplicationScoped seria incorrecto porque mezclaria carritos entre usuarios
+
+2. ¿Qué le falta al TransferenciaService para garantizar atomicidad?
+
+    - Falta el TransferenciaService para garantizar atomicidad, elmanejo transaccional real a nivel del contenedor o framework
+
+    - El metodo deberia tener @Transaccional aplicada a toda la operacion
+    - El codigo debe ejecutarse dentro de una unica transaccion que abarque ambas actualizaciones (origen y destino) para asegurar que si una fala, la otra tambien se revierta.
+
+3. ¿Qué violaciones arquitectónicas tiene el JSP? Proponga una solución.
+>>>>>>> c484b5ad3a8ff7a668a20174514e3be86cb8c74b
+
+    Violaciones arquitectónicas:
+    - Logica de negocio dentro de la vista (Rompe el patron MVC).
+    - Acceso directo a la base de datos.
+    - Falta de separacion entre capas (no hay dao ni service).
+    - Ausencia de manejo de errores y cierres de recursos.
+
+    Solucion:
+    - Mover la lógica de bases de datos a una capa DAO/SERVICE
+    - Usar un Servert o Controller que invoque que esa capa y ponga los resultados en el request con setAttribute().
+    - El JSP solo debe mostrar datos usando JSTL o Expresion Language.
 
 ---
 
