@@ -194,7 +194,6 @@ public class TransferenciaService {
 ---
 
 **Preguntas:**
-<<<<<<< HEAD
 
 ### 1. ¿Qué scope debería tener el CarritoComprasController? ¿Por qué?
 
@@ -203,32 +202,7 @@ public class TransferenciaService {
     * `@RequestScoped` perdería el estado en cada petición.
     * `@ApplicationScoped` sería compartido por todos los usuarios (inadecuado).
 * Se debe asegurar la serializabilidad de la clase. `@ViewScoped` es una alternativa para flujos cortos/multi-step.
-=======
-1. ¿Qué scope debería tener el CarritoComprasController? ¿Por qué?
-    Debe ser @SessionScoped, el carrito pertenece a la sesión del usuario y debe mantener su estado entre multiples peticiones HTTP (Agregar, eliminar, confirmar productos) con @RequestScoped se perdera el contenido en cada peticion y el usuario no podria conservar su carrito. @aplicationScoped seria incorrecto porque mezclaria carritos entre usuarios
 
-2. ¿Qué le falta al TransferenciaService para garantizar atomicidad?
-
-    - Falta el TransferenciaService para garantizar atomicidad, elmanejo transaccional real a nivel del contenedor o framework
-
-    - El metodo deberia tener @Transaccional aplicada a toda la operacion
-    - El codigo debe ejecutarse dentro de una unica transaccion que abarque ambas actualizaciones (origen y destino) para asegurar que si una fala, la otra tambien se revierta.
-
-3. ¿Qué violaciones arquitectónicas tiene el JSP? Proponga una solución.
->>>>>>> c484b5ad3a8ff7a668a20174514e3be86cb8c74b
-
-    Violaciones arquitectónicas:
-    - Logica de negocio dentro de la vista (Rompe el patron MVC).
-    - Acceso directo a la base de datos.
-    - Falta de separacion entre capas (no hay dao ni service).
-    - Ausencia de manejo de errores y cierres de recursos.
-
-    Solucion:
-    - Mover la lógica de bases de datos a una capa DAO/SERVICE
-    - Usar un Servert o Controller que invoque que esa capa y ponga los resultados en el request con setAttribute().
-    - El JSP solo debe mostrar datos usando JSTL o Expresion Language.
-
----
 
 ### 2. ¿Qué le falta al TransferenciaService para garantizar atomicidad?
 
