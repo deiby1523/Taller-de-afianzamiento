@@ -137,23 +137,23 @@ public class TransferenciaService {
 
 2. ¿Qué le falta al TransferenciaService para garantizar atomicidad?
 
-    Falta el TransferenciaService para garantizar atomicidad, elmanejo transaccional real a nivel del contenedor o framework
+    - Falta el TransferenciaService para garantizar atomicidad, elmanejo transaccional real a nivel del contenedor o framework
 
-    *El metodo deberia tener @Transaccional aplicada a toda la operacion
-    *El codigo debe ejecutarse dentro de una unica transaccion que abarque ambas actualizaciones (origen y destino) para asegurar que si una fala, la otra tambien se revierta.
+    - El metodo deberia tener @Transaccional aplicada a toda la operacion
+    - El codigo debe ejecutarse dentro de una unica transaccion que abarque ambas actualizaciones (origen y destino) para asegurar que si una fala, la otra tambien se revierta.
 
 3. ¿Qué violaciones arquitectónicas tiene el JSP? Proponga una solución.
 
     Violaciones arquitectónicas:
-    *Logica de negocio dentro de la vista (Rompe el patron MVC).
-    *Acceso directo a la base de datos.
-    *Falta de separacion entre capas (no hay dao ni service).
-    *Ausencia de manejo de errores y cierres de recursos.
+    - Logica de negocio dentro de la vista (Rompe el patron MVC).
+    - Acceso directo a la base de datos.
+    - Falta de separacion entre capas (no hay dao ni service).
+    - Ausencia de manejo de errores y cierres de recursos.
 
     Solucion:
-    *Mover la lógica de bases de datos a una capa DAO/SERVICE
-    *Usar un Servert o Controller que invoque que esa capa y ponga los resultados en el request con setAttribute().
-    *El JSP solo debe mostrar datos usando JSTL o Expresion Language.
+    - Mover la lógica de bases de datos a una capa DAO/SERVICE
+    - Usar un Servert o Controller que invoque que esa capa y ponga los resultados en el request con setAttribute().
+    - El JSP solo debe mostrar datos usando JSTL o Expresion Language.
 
 ---
 
