@@ -39,13 +39,20 @@
 
 **Complete la tabla:**
 
-| Aspecto | Escenario A | Escenario B | Escenario C |
-|---------|-------------|-------------|-------------|
-| Scope del Controller principal | | | |
-| ¿Necesita transacciones? ¿Por qué? | | | |
-| ¿Usar Facade? Justifique | | | |
-| Principal desafío de concurrencia | | | |
-| Patrón de persistencia más apropiado | | | |
+| Aspecto | Escenario A: Sistema de Pedidos Online | Escenario B: Portal de Noticias | Escenario C: Sistema de Matrícula Universitaria |
+|---------|-----------------------------------------|--------------------------------|-----------------------------------------------|
+| **Scope del Controller principal** | **@SessionScoped.** Cada cliente mantiene su propio carrito durante toda la sesión de compra, por lo que se requiere conservar el estado del pedido mientras el usuario interactúa. | **@ApplicationScoped.** La mayoría de operaciones son de solo lectura (consultar noticias). El contenido puede compartirse entre muchos usuarios sin información específica de sesión. | **@ViewScoped.** Permite mantener los datos durante los pasos de la matrícula (proceso de varios formularios). Este alcance conserva el estado mientras el usuario esté en la misma vista o flujo. *(Se aclara que este scope se investigó, ya que no se ha profundizado aún en clase, pero es el más apropiado para flujos de varios pasos.)* |
+| **¿Necesita transacciones? ¿Por qué?** | **Sí.** Es necesario garantizar la integridad de los datos: si falla el cálculo del total o la validación de inventario, todo el proceso debe revertirse para mantener la consistencia de la base de datos (ACID). | **En su mayoría, no.** Las operaciones principales son lecturas de noticias (no requieren transacción). Solo las publicaciones o conteo de visitas necesitarían una transacción simple. | **Sí.** El proceso de matrícula implica múltiples pasos que deben registrarse como una única operación. Si falla la asignación de cupo o validación de prerrequisitos, debe revertirse toda la matrícula. |
+| **¿Usar Facade? Justifique** | **Sí.** El *Facade* coordina la lógica de negocio del pedido: validaciones, cálculos de totales, descuentos y registro de auditoría. Simplifica la comunicación entre el Controller y el DAO. | **Opcional.** Puede emplearse un *Facade* para gestionar la publicación de noticias y el conteo de visitas, separando la lógica de negocio del acceso a datos. Sin embargo, la mayor parte son lecturas simples. | **Sí.** El *Facade* centraliza la lógica del proceso de matrícula: validación de prerrequisitos, disponibilidad de cupos y registro del estudiante, evitando lógica dispersa en los controladores. |
+| **Principal desafío de concurrencia** | Controlar pedidos simultáneos sobre el mismo producto. Si varios usuarios compran al mismo tiempo, se debe evitar que el inventario quede en negativo. | Manejar lecturas concurrentes de muchos usuarios y escritura concurrente al incrementar el contador de visitas. | Evitar conflictos cuando varios estudiantes intentan matricularse simultáneamente en un mismo curso con cupos limitados. |
+| **Patrón de persistencia más apropiado** | **DAO (Data Access Object).** Separa la lógica de negocio (en el Facade) del acceso a datos (en el DAO), reutilizando las conexiones gracias al *pool de conexiones*. Se investigó que también puede complementarse con JPA para control de versiones e integridad de datos. | **DAO con consultas optimizadas.** Ideal para operaciones de lectura frecuentes. Puede usarse junto a una caché de resultados para optimizar el rendimiento. | **DAO con manejo transaccional.** Centraliza las operaciones de inserción y actualización en el proceso de matrícula. Se investigó que en aplicaciones más complejas podría usarse un patrón *Repository* o JPA con control de concurrencia. |
+
+> **Notas adicionales:**
+> - Los *scopes* se seleccionaron con base en los vistos en clase (`@ApplicationScoped`, `@SessionScoped`, `@RequestScoped`, `@Dependent`, `@ViewScoped`). Solo el último fue investigado adicionalmente para ajustarse al flujo de matrícula.
+> - El patrón *Facade* representa la capa de negocio que coordina la interacción entre el controlador y los DAOs.
+> - El *DAO* fue el patrón de persistencia más utilizado y visto en clase; sin embargo, se investigaron complementos como JPA y Repository para comprender opciones más modernas de manejo de datos.
+> - Se consideró el uso de *pool de conexiones* para mejorar el rendimiento y evitar saturación del servidor de base de datos.
+
 
 ### Actividad 2: Depuración de Código Problemático (15 minutos)
 
@@ -85,7 +92,27 @@ public class CarritoComprasController implements Serializable{ // Con @SessionSc
     // Getters y setters
 
 }
+```
+### Explicación / Problemas identificados
 
+* **Inicialización:** Originalmente `productosEnCarrito` no estaba inicializada. El `@PostConstruct` es el mecanismo correcto para inicializar colecciones en *beans* gestionados, pero es crucial **confirmar que el *bean* esté realmente gestionado** por CDI/JSF para que `@PostConstruct` se ejecute.
+* **Serialización:** Al usar `@SessionScoped`, la clase debe implementar **`Serializable`** y **todos sus campos** deben ser serializables o declarados `transient` para asegurar la persistencia de la sesión (importante en despliegues en *cluster*).
+* **Validaciones Ausentes:** No se valida si `productoService.buscar(codigo)` devuelve `null` ni si hay stock disponible. Llamar a `p.getPrecio()` sin chequear el objeto `p` puede causar un `NullPointerException` (NPE).
+* **Fuente de Verdad del Precio:** Sumar `p.getPrecio()` directamente y de forma incremental puede ser inseguro si el precio se manipula en la interfaz de usuario. La fuente de verdad debe ser el **servicio/BD**.
+* **Concurrencia de Sesión:** Aunque `@SessionScoped` implica una instancia por sesión, acciones simultáneas desde múltiples pestañas del navegador pueden provocar **condiciones de carrera** sobre la lista y el total.
+* **Responsabilidad:** El *controller* está realizando manipulaciones de lista y cálculos. Parte de esta lógica debería delegarse a un `CartService` o `OrderFacade` para limpiar responsabilidades.
+
+### Posibles mejoras
+
+* Añadir verificación `if (p == null) { /* manejar producto no encontrado */ }` y chequear stock antes de añadir.
+* Evitar actualizar `totalCompra` incrementalmente. En su lugar, usar un método **`recalcularTotal()`** que itere sobre la lista para evitar desincronización.
+* Si existe riesgo de concurrencia, **proteger secciones críticas** (o sincronizar métodos) o rediseñar para evitar operaciones concurrentes en la misma sesión.
+* Delegar el proceso de finalización (persistencia, validaciones, pago) a un **`OrderFacade`** que gestione transacciones y auditoría.
+* Confirmar que todos los atributos sean `Serializable` para despliegue en *cluster* o considerar almacenamiento externo (DB/Redis) para el carrito si la sesión no es fiable.
+
+###
+
+```java
 // Código 2: Service sin manejo transaccional
 public class TransferenciaService {
     
@@ -106,7 +133,26 @@ public class TransferenciaService {
         cuentaDAO.actualizar(cuentaDestino);
     }
 }
+```
+### Explicación / Problemas identificados
 
+* **Ambigüedad en la Anotación Transaccional:** Es vital **confirmar la implementación** de `@Transactional` (Jakarta EE o Spring) para entender su comportamiento por defecto, especialmente ante **excepciones checked** como `SQLException`. Muchos *frameworks* no hacen *rollback* automáticamente en estos casos.
+* **Rollback para Excepciones Checked:** Si el método declara `throws SQLException`, el *framework* podría no revertir la transacción. Es necesario configurar explícitamente `rollbackOn` o `rollbackFor = Exception.class` según el *stack* tecnológico para garantizar la **atomicidad**.
+* **Validación de Saldo:** No se verifica si la cuenta origen tiene **saldo suficiente** antes de realizar el débito, lo que puede provocar sobregiros.
+* **Condición de Carrera / Aislamiento:** Sin un mecanismo de bloqueo (p. ej., **`SELECT FOR UPDATE`**) o un nivel de aislamiento adecuado, dos operaciones simultáneas podrían causar inconsistencias (*lost update*).
+* **Manejo de Excepciones:** Propagar `SQLException` a la capa superior sin control puede ser problemático. Es mejor envolverla en una **excepción de negocio** o *runtime* para una gestión de errores más limpia y para facilitar el *rollback* automático.
+
+### Posibles mejoras 
+
+* **Configurar Rollback:** Verificar la anotación transaccional y configurarla explícitamente para que haga *rollback* en las excepciones necesarias (ej. `@Transactional(rollbackFor = Exception.class)` en Spring).
+* **Validación Previa:** **Validar condiciones previas** (saldo suficiente) antes de cualquier modificación y lanzar una excepción de negocio si no se cumple.
+* **Control de Concurrencia:** Implementar un control de concurrencia en la capa DAO, ya sea con bloqueo pesimista (**`SELECT FOR UPDATE`**) o control optimista (versión y reintentos) para evitar *race conditions*.
+* **Coordinación de Recursos:** Si la operación afecta múltiples recursos (BD + servicios externos), evaluar patrones como **SAGA** o **2PC/XA**.
+* **Encapsulamiento de Excepciones:** Encapsular las excepciones de persistencia en excepciones de negocio o *runtime* adecuadas para garantizar el comportamiento consistente del *rollback* por parte del contenedor.
+
+###
+
+```java
 // Código 3: JSP con lógica de negocio
 <%
     String cedula = request.getParameter("cedula");
@@ -123,14 +169,54 @@ public class TransferenciaService {
     }
 %>
 ```
+### Explicación / Problemas identificados
+
+* **Mezcla de Capas (Violación MVC):** La vista (**JSP**) ejecuta directamente **acceso a la Base de Datos** (`Connection`, `DriverManager`) y contiene **lógica de negocio** (`if(saldo > 1000000)`). Esto rompe el patrón **MVC** (Modelo-Vista-Controlador), dificultando el mantenimiento y las pruebas.
+* **Manejo de Recursos Deficiente:** Los objetos `Connection`, `PreparedStatement` y `ResultSet` **no se cierran**, lo que provoca **fugas de recursos** que pueden saturar el servidor de base de datos.
+* **Rendimiento y Seguridad:** Se utiliza `DriverManager` en lugar de un **`DataSource` con *pool* de conexiones**, lo cual es **ineficiente y peligroso** en producción.
+* **Salida Directa desde JSP:** El uso de `out.println` incrusta lógica de salida; la presentación debe limitarse a **JSTL/EL** y mostrar datos pre-procesados por el *controller*.
+* **Testabilidad y Seguridad:** La lógica incrustada es difícil de probar y el manejo de excepciones no está centralizado.
+
+### Posibles mejoras
+
+* **Acceso a Datos:** Mover el acceso a BD a un **`ClienteDAO`** que use un **`DataSource`** (pool de conexiones) y la estructura **`try-with-resources`** para cerrar los recursos de forma segura.
+* **Lógica de Negocio:** Crear un **`ClienteService`** que encapsule la regla de negocio (p. ej., determinar si el cliente es VIP).
+* **Orquestación:** Usar un **`Servlet`** o **`Controller`** para recibir la cédula, **validarla**, invocar el `Service` y colocar el objeto cliente resultante como atributo de *request*.
+* **Vista Pura:** La JSP solo debe usar **JSTL/EL** (Expression Language) para mostrar la información (ej. `${cliente.tipo}`), eliminando toda lógica y acceso a BD.
+* **Manejo de Errores:** Asegurar el manejo de excepciones en la capa de servicio y *controller* para mostrar errores amigables en lugar de trazas al usuario.
+---
 
 **Preguntas:**
-1. ¿Qué scope debería tener el CarritoComprasController? ¿Por qué?
-2. ¿Qué le falta al TransferenciaService para garantizar atomicidad?
-3. ¿Qué violaciones arquitectónicas tiene el JSP? Proponga una solución.
+
+### 1. ¿Qué scope debería tener el CarritoComprasController? ¿Por qué?
+
+* **Recomendación:** `@SessionScoped`.
+* **Justificación:** El carrito debe **mantener el estado por usuario** entre múltiples peticiones durante la sesión.
+    * `@RequestScoped` perdería el estado en cada petición.
+    * `@ApplicationScoped` sería compartido por todos los usuarios (inadecuado).
+* Se debe asegurar la serializabilidad de la clase. `@ViewScoped` es una alternativa para flujos cortos/multi-step.
 
 ---
 
+### 2. ¿Qué le falta al TransferenciaService para garantizar atomicidad?
+
+Le falta configurar y asegurar la **transaccionalidad declarativa correcta** (usar la anotación adecuada y configurar el `rollback` para excepciones *checked* si corresponde).
+
+Además, requiere:
+* **Validar condiciones previas** (saldo suficiente).
+* Aplicar **control de concurrencia/aislamiento** en el DAO (como `SELECT FOR UPDATE` o control optimista).
+* Encapsular/exponer las excepciones de forma controlada para que el contenedor pueda ejecutar el *rollback* correctamente.
+
+---
+
+### 3. ¿Qué violaciones arquitectónicas tiene el JSP? Proponga una solución.
+
+| Aspecto | Violación | Solución Propuesta (Aplicar MVC) |
+| :--- | :--- | :--- |
+| **Separación de Capas** | **Mezcla** de presentación, lógica de negocio y acceso a datos en la vista. | Mover el acceso a BD a **`ClienteDAO`** y la lógica de negocio a **`ClienteService`**. |
+| **Recursos y Rendimiento** | Uso de `DriverManager` en vez de `DataSource` y **recursos sin cerrar** (fugas). | Usar **`DataSource`** (pool de conexiones) y el patrón **`try-with-resources`** en el DAO. |
+| **Control** | Baja testabilidad y gestión de errores descentralizada. | Usar un **`Servlet/Controller`** para orquestar y dejar la JSP únicamente para **presentación** con JSTL/EL. |
+---
 ## PARTE II: EJERCICIO PRÁCTICO - REFACTORIZACIÓN (40 minutos)
 
 ### Ejercicio: Sistema de Reserva de Citas Médicas
